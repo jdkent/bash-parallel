@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 function printCommandLine {
     echo "Usage: parallel_submit.sh -f flags -l list (.txt) -s script -m free_memory_limit -c clean -h help"
     echo " where"
@@ -211,8 +211,9 @@ while [[ ${#arg_arr[@]} -ne ${#pid_arr[@]} ]] &&\
 	  	#the kill signal
 	  	read -t 1 kill_signal
 
+	  	#doesn't work in MAC-OS
 	  	#got to keep updating/reseting to get accurate measures
-	  	free_memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+	  	#free_memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
 	  	active_jobs=0
 	  	
 	  	#two purposes:

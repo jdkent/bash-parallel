@@ -164,10 +164,12 @@ echo "putting together command and submiting"
 num_args=$(echo "${num_flags}+${num_lists}" | bc)
 
 #set memory contraints to help prevent overflow
-free_memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+#doesn't work in MAC OS
+#free_memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
 ran=no
 while [ "${ran}" == "no" ]; do
-	if [[ ${free_memory_limit_kb} -lt ${free_memory_kb} ]]; then
+
+	if [[ ${free_memory_limit_kb} -lt 100 ]]; then
 	#submit the job(s)!
 	paste ${command_args[@]} | xargs -n${num_args} -P${max_jobs} ${script}
 	ran=yes
