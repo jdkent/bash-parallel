@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 function printCommandLine {
     echo "Usage: parallel_submit.sh -f flags -l list (.txt) -s script -m free_memory_limit -c clean -h help"
     echo " where"
@@ -76,6 +76,11 @@ do
 	    ;;
     esac
 done
+OS=$(uname -s)
+if [ "${OS}" != "Darwin" ] && [ "${OS}" != "Linux" ];then
+	echo "WARNING: this program was not designed for this system"
+fi
+
 #complain and exit if there are no lists
 if [ "${lists}" == "" ]; then
 	echo "-l option is required, please enter the lists below and press [ENTER] (don't use quotes)"
@@ -99,7 +104,13 @@ if [ "${script}" == "" ]; then
 fi
 #chastise and continue if there is no max job set
 if [ "${max_jobs}" == "" ]; then
-	num_cores=$(nproc)
+	if [ "${OS}" == "Darwin" ]; then
+		num_cores=$(sysctl -n hw.ncpu)
+	elif [ ${OS} == "Linux" ]; then
+		num_cores=$(nproc)
+	else
+		echo "WARNING, system not supported, expect error"
+	fi
 	echo -e "you didn't set -j, default 2,\n but you could potentially run ${num_cores} jobs or more cocurrently"
 	echo "last chance, please enter the number of jobs you would like to run and press [ENTER]:"
 	read -t 10 max_jobs
@@ -119,6 +130,13 @@ if [ "${flags}" == "" ]; then
 	paste ${lists[@]} | xargs -n${num_args} -P${max_jobs} ${script}
 	exit 1
 fi
+
+#in case you had to use escape characters to pass arguments
+flag_index=0
+for flag in ${flags[@]}; do
+	flags[${flag_index}]=$(echo ${flag} | sed 's/\\//g')
+	flag_index=$((${flag_index} + 1 ))
+done
 
 #this array will be used to hold the flags and arguments to pass into xargs
 declare -a command_args
@@ -141,11 +159,11 @@ for flag_num in $(seq 0 $(echo "${num_flags}-1" | bc)); do
 		fi
 	#where we make a txt file containing the same number of flags as arguments.
 	for arg in $(seq ${num_items}); do
-		if [[ "${flags[${flag_num}]}" == -* ]]; then
+		#if [[ "${flags[${flag_num}]}" == -* ]]; then
 			echo "${flags[${flag_num}]}" >> flag_${flags[${flag_num}]}.txt
-		else	
-			echo "-${flags[${flag_num}]}" >> flag_${flags[${flag_num}]}.txt
-		fi
+		#else	
+			#echo "-${flags[${flag_num}]}" >> flag_${flags[${flag_num}]}.txt
+		#fi
 	done	
 	#echo ${num_args}
 
@@ -204,55 +222,72 @@ kill_signal=no
 ######################################################################################
 #The big magical loop
 
+first_iteration=1
 #keep going until all the scripts are submitted or until kill signal is initiated.
-while [[ ${#arg_arr[@]} -ne ${#pid_arr[@]} ]] &&\
+while [[ ${#arg_arr[@]} -gt ${#pid_arr[@]} ]] &&\
 	  [ "${kill_signal}" != "k" ]; do
+	  	if [ ${first_iteration} -eq 1 ]; then
+	  		sh ${script} ${arg_arr[${x}]} &>${script_name_strip}_${x}.txt & pid_arr[${x}]=$!
+			echo "${script} ${arg_arr[${x}]} submitted"
 
-	  	#the kill signal
-	  	read -t 1 kill_signal
+			#keep track of the time this script was started
+			time_arr[${x}]=$(date +%s)
 
-	  	#doesn't work in MAC-OS
-	  	#got to keep updating/reseting to get accurate measures
-	  	#free_memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-	  	active_jobs=0
-	  	
-	  	#two purposes:
-	  	#1) find out how many active jobs are running
-		#2) if a job finished, write its run time to a text file
-	  	for job in $(seq 0 $(echo "${#pid_arr[@]}-1" |bc)); do
-	  		if ps -p ${pid_arr[${job}]} > /dev/null; then
-	  			active_jobs=$((${active_jobs}+1))
-	  		else
-	  			if [ "${time_arr[${job}]}" != "wrote" ]; then
-		  			end_time=$(date +%s)
-		  			run_time=$(echo "scale=2; (${end_time}-${time_arr[${job}]})/60" | bc -l)
-		  			echo "${script_name_strip}_${job} ran ${run_time} minutes" >> ${script_name_strip}_times.txt
-		  			time_arr[${job}]=wrote
-	  			fi
-	  		fi
-	  	done
-	  	
-	  	echo "There are ${active_jobs} job(s) running"
+			#keeps track of which instance of the script we are planning on running
+			x=$((${x}+1))
+			first_iteration=0
+		else
+		  	#the kill signal
+		  	read -t 1 kill_signal
 
-	  	#if there isn't enough memory or we've reached the max jobs we can submit...
-	  	#don't do anything else until we have enough memory & fewer than max jobs are running
-	  	if [[ ${free_memory_limit_kb} -gt ${free_memory_kb} ]] ||\
-	  	   [[ ${active_jobs} -eq ${max_jobs} ]]; then
-	  		continue
-	  	fi
-	  	
-	  	#This does a few things
-	  	#1)submits the script
-		#2)redirects output to a text file
-		#3)records the pid of that process
-		sh ${script} ${arg_arr[${x}]} &>${script_name_strip}_${x}.txt & pid_arr[${x}]=$!
-		echo "${script} ${arg_arr[${x}]} submitted"
+		  	#doesn't work in MAC-OS
+		  	#got to keep updating/reseting to get accurate measures
+			if [ "${OS}" == "Linux" ]; then
+				free_memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+			elif [ "${OS}" == "Darwin" ]; then
+				free_memory_kb=$(vm_stat | grep Pages\ free | awk '{print $3}' | sed 's/\./\*4/' | bc)
+			fi
+		  	active_jobs=0
+		  	
+		  	#two purposes:
+		  	#1) find out how many active jobs are running
+			#2) if a job finished, write its run time to a text file
+		  	for job in $(seq 0 $(echo "${#pid_arr[@]}-1" |bc)); do
+		  		if ps -p ${pid_arr[${job}]} > /dev/null; then
+		  			active_jobs=$((${active_jobs}+1))
+		  		else
+		  			if [ "${time_arr[${job}]}" != "wrote" ]; then
+			  			end_time=$(date +%s)
+			  			run_time=$(echo "scale=2; (${end_time}-${time_arr[${job}]})/60" | bc -l)
+			  			echo "${script_name_strip}_${job} ran ${run_time} minutes" >> ${script_name_strip}_times.txt
+			  			time_arr[${job}]=wrote
+		  			fi
+		  		fi
+		  	done
+		  	
+		  	
+		
+		  	#if there isn't enough memory or we've reached the max jobs we can submit...
+		  	#don't do anything else until we have enough memory & fewer than max jobs are running
+		  	if [[ ${free_memory_limit_kb} -gt ${free_memory_kb} ]] ||\
+		  	   [[ ${active_jobs} -eq ${max_jobs} ]]; then
+		  		continue
+		  	fi
+		  	
+		  	echo "There are ${active_jobs} job(s) running"
+		  	#This does a few things
+		  	#1)submits the script
+			#2)redirects output to a text file
+			#3)records the pid of that process
+			sh ${script} ${arg_arr[${x}]} &>${script_name_strip}_${x}.txt & pid_arr[${x}]=$!
+			echo "${script} ${arg_arr[${x}]} submitted"
 
-		#keep track of the time this script was started
-		time_arr[${x}]=$(date +%s)
+			#keep track of the time this script was started
+			time_arr[${x}]=$(date +%s)
 
-		#keeps track of which instance of the script we are planning on running
-		x=$((${x}+1))
+			#keeps track of which instance of the script we are planning on running
+			x=$((${x}+1))
+		fi
 done
 
 #if the kill signal was issued, kill the jobs
