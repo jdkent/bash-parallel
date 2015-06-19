@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash 
 function printCommandLine {
     echo "Usage: parallel_submit.sh -f flags -l list (.txt) -s script -m free_memory_limit -c clean -h help"
     echo " where"
@@ -154,13 +154,13 @@ for flag_num in $(seq 0 $(echo "${num_flags}-1" | bc)); do
 		num_items=$(cat ${lists[${flag_num}]} | wc -l)
 	fi
 	#check to see if this script was ran before
-		if [ -e flag_${flags[${flag_num}]}.txt ]; then
-				rm flag_${flags[${flag_num}]}.txt
+		if [ -e flag_${flag_num}.txt ]; then
+				rm flag_${flag_num}.txt
 		fi
 	#where we make a txt file containing the same number of flags as arguments.
 	for arg in $(seq ${num_items}); do
 		#if [[ "${flags[${flag_num}]}" == -* ]]; then
-			echo "${flags[${flag_num}]}" >> flag_${flags[${flag_num}]}.txt
+			echo "${flags[${flag_num}]}" >> flag_${flag_num}.txt
 		#else	
 			#echo "-${flags[${flag_num}]}" >> flag_${flags[${flag_num}]}.txt
 		#fi
@@ -169,10 +169,10 @@ for flag_num in $(seq 0 $(echo "${num_flags}-1" | bc)); do
 
 	#smush the flag and arguments together, and index the output in the command_args array
 	if [[ ${flag_num} -le $(echo "${num_lists}-1" | bc) ]]; then
-		paste flag_${flags[${flag_num}]}.txt ${lists[${flag_num}]} > list_${flags[${flag_num}]}.txt
-		command_args[${flag_num}]="list_${flags[${flag_num}]}.txt"
+		paste flag_${flag_num}.txt ${lists[${flag_num}]} > list_${flag_num}.txt
+		command_args[${flag_num}]="list_${flag_num}.txt"
 	else
-		command_args[${flag_num}]="flag_${flags[${flag_num}]}.txt"
+		command_args[${flag_num}]="flag_${flag_num}.txt"
 	fi
 done
 echo "putting together command and submiting"
@@ -308,6 +308,7 @@ echo "Additionally if you would like to kill remaining jobs, press \"k\" and hit
 #can kill scripts here too, if they are failing
 #future: add option to kill specific scripts?
 while [[ ${active_jobs} -gt 0 ]]; do
+	ans=n #default value, so "j" doesn't continue to be true forever, filling the terminal with trash
 	read -t 1 ans
 	active_jobs=0
   	for job in $(seq 0 $(echo "${#pid_arr[@]}-1" |bc)); do
