@@ -30,16 +30,9 @@ function printCommandLine {
 #again without the "#" in front.
 #The 2 important things for these files are:
 #1) each argument gets it's own line (i.e. 341 is on a different line than 342)
-#2) The line in subjects.txt corresponds to the same line in outDirs.txt
-#   (i.e. "343" in subjects.txt is on the same line as "outDir/for/343" in outDirs.txt)
+#2) The line in subjects.parallel corresponds to the same line in outDirs.parallel
+#   (i.e. "343" in subjects.parallel is on the same line as "outDir/for/343" in outDirs.parallel)
 
-#example of flags
-#back to example.sh, which takes in a subject and an output directory.
-#example.sh takes two flags -s and -o, which correspond to subject and output, respectively.
-#to pass those flag into the script, either do -f "-s -o" or -f "s o".
-#The important thing to remember is:
-#the order of the flags has to match the order of lists.
-#So if you put -s first, you must put subjects.txt first.
 
 #the scary code
 ########################################################
