@@ -274,7 +274,7 @@ while [[ ${#arg_arr[@]} -gt ${#pid_arr[@]} ]] &&\
 		  	#if there isn't enough memory or we've reached the max jobs we can submit...
 		  	#don't do anything else until we have enough memory & fewer than max jobs are running
 		  	if [[ ${free_memory_limit_kb} -gt ${free_memory_kb} ]] ||\
-		  	   [[ ${active_jobs} -eq ${max_jobs} ]]; then
+		  	   [[ ${active_jobs} -ge ${max_jobs} ]]; then
 		  		continue
 		  	fi
 		  	
